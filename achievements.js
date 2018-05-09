@@ -27,7 +27,7 @@ let achievements = [
     {'name': 'Not quite eight', 'desc': 'Go infinite. Reward: Start with 7 zeros.'}
   ], [
     {'name': 'Daredevil', 'desc': 'Complete a challenge.'},
-    {'name': "That's fast", 'desc': 'Go infinite in 1 hour. Reward: Start with 7^3 zeros.'},
+    {'name': "That's fast!", 'desc': 'Go infinite in 30 minutes. Reward: Start with 7^3 zeros.'},
     {'name': "One's even enough", 'desc': 'Go infinite with only one seven. Reward: All numbers but sevens are 7/6x stronger.'},
     {'name': 'Why were boosts afraid of seven?', 'desc': 'Boost sevens.'},
     {'name': 'Some one needs to nerf that II', 'desc': 'Produce 1e6 zeros per second with a single one and nothing else without any shifts or boosts.'},
@@ -35,9 +35,9 @@ let achievements = [
     {'name': "That's a lot of infinities", 'desc': 'Go infinite 10 times.'}
   ], [
     {'name': 'Anti-challenged', 'desc': 'Complete all the challenges.'},
-    {'name': "That's faster", 'desc': 'Go infinite in 1 minute. Reward: Start with 7^9 zeros.'},
+    {'name': "That's faster!", 'desc': 'Go infinite in 1 minute. Reward: Start with 7^9 zeros.'},
     {'name': 'How did you do that?', 'desc': 'Go infinite having shifted no more than 5 times and not boosted at all.'},
-    {'name': "We ain't ever getting over", 'desc': 'Infinity without your zeros ever getting over your zeros per second. Reward: Ones get 2x multiplier.'},
+    {'name': "We ain't ever getting over", 'desc': 'Infinity without your zeros ever getting over your zeros per second (after first second of each reset). Reward: Ones get 2x multiplier.'},
     {'name': 'Many stoppages', 'desc': 'Complete Challenge 2 in 2 minutes. Reward: Boost to production over first two minutes of infinity.'},
     {'name': "Exponential doesn't mean fast", 'desc': 'Complete Challenge 3 in 3 minutes. Reward: exponential boost to all production over first 21 minutes, vanishing over next 21.'},
     {'name': 'Everything is done for you', 'desc': 'Go infinite without at all manually clicking, buying, or resetting.'}
@@ -78,6 +78,19 @@ let populateAchievements = function (player) {
       row.appendChild(td);
     }
     table.appendChild(row);
+  }
+  setInterval(function () {
+    redisplayAchievements(player);
+  }, 5000);
+}
+
+let redisplayAchievements = function (player) {
+  for (let i = 0; i < achievements.length; i++) {
+    for (let j = 0; j < achievements[i].length; j++) {
+      let item = document.getElementById('ach' + i + '-' + j);
+      item.className = player.achievements.includes(i + '-' + j) ?
+      'achievementunlocked' : 'achievementlocked';
+    }
   }
 }
 

@@ -1,7 +1,9 @@
 import {Decimal} from './big_number.js';
 import {achievements, populateAchievements, giveAchievement, hasAchievement}
 from './achievements.js';
-import {title, get, processPhrase, formatTime, notify} from './utils.js';
+import {getEffect, infinityShop, populateShop} from './shops.js';
+import {title, get, processPhrase, formatTime, notify,
+utilGetAmount, utilGetBought} from './utils.js';
 
 let TIERS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven'];
 
@@ -47,6 +49,13 @@ let initNeededPerShift = function () {
   return d;
 }
 
+let initialLast10Inf = function () {
+  return [...Array(10)].map(function (x) {
+    return {'time': 1000 * 30 * 12 * 24 * 60 * 60 * 1000,
+    'ip': new Decimal(0), 'ipPerMinute': new Decimal(0)};
+  });
+}
+
 let initPlayer = function () {
   return {
     'totalZeros': new Decimal(0),
@@ -59,15 +68,19 @@ let initPlayer = function () {
     'doublePrices': initDoublePrices(),
     'doublePriceMults': initDoublePriceMults(),
     'neededPerShift': initNeededPerShift(),
-    'neededPerBoost': 343,
     'boosts': {},
     'shifts': 0,
     'infinities': 0,
     'infinityPoints': new Decimal(0),
     'achBoost': 1,
     'achievements': [],
-    'playStart': Date.now(),
+    'times': {
+      'playStart': Date.now(),
+      'infStart': Date.now(),
+      'resetStart': Date.now(),
+    },
     'lastTick': Date.now(),
+    'last10Inf': initialLast10Inf(),
     'version': [1, 0, 0, 0]
   };
 }
@@ -142,6 +155,14 @@ let updatePlayer = function () {
       delete player[i];
     }
   }
+  if (!('gettingOver' in player)) {
+    player.gettingOver = true;
+  }
+  if (!('last10Inf' in player) || player.last10Inf.some(function (x) {
+    return typeof x.ip === 'number' || typeof x.ipPerMinute === 'number';
+  })) {
+    player.last10Inf = initialLast10Inf();
+  }
 }
 
 let load = function (x, playerCaused) {
@@ -186,11 +207,28 @@ let updateStats = function () {
   processPhrase(player.shifts, 0, 'shift') + '.';
   // infinities
   if (player.infinities > 0) {
-    document.getElementById('statInfinitied').style.display = 'none';
+    document.getElementById('statInfinitied').style.display = '';
     document.getElementById('statInfinitied').innerHTML =
     'You have gone infinite ' + processPhrase(player.infinities, 0, 'time') + '.';
   } else {
-    document.getElementById('statInfinitied').style.display = '';
+    document.getElementById('statInfinitied').style.display = 'none';
+  }
+  if (player.infinities > 0) {
+    document.getElementById('last10Inf').style.display = '';
+    for (let i = 0; i < 10; i++) {
+      let el = document.getElementById('last10Inf' + i);
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'last10Inf' + i;
+        document.getElementById('last10Inf').appendChild(el);
+      }
+      el.innerHTML = 'The infinity ' + (i + 1) + ' infinities ago took ' +
+      formatTime(player.last10Inf[i].time) + ' and gave ' +
+      player.last10Inf[i].ip.toStr(2) + ' infinity points. ' +
+      player.last10Inf[i].ipPerMinute.toStr(2) + ' IP per minute.';
+    }
+  } else {
+    document.getElementById('last10Inf').style.display = 'none';
   }
 }
 
@@ -214,11 +252,11 @@ let updateAchPower = function () {
 }
 
 let getBought = function (i) {
-  return get(player.bought, i, 0)
+  return utilGetBought(player, i);
 }
 
 let getAmount = function (i) {
-  return get(player.amounts, i, new Decimal(0))
+  return utilGetAmount(player, i);
 }
 
 let getZeros = function () {
@@ -234,10 +272,18 @@ let doProduction = function (diff) {
 
 let getMultiplier = function (rank) {
   let mult = new Decimal(1);
-  mult = mult.times(Decimal.pow(2, player.shifts));
-  mult = mult.times(Decimal.pow(2, get(player.doubleBought, rank, 0)));
-  mult = mult.times(Decimal.pow(2, get(player.boosts, rank, 0)));
+  mult = mult.times(Decimal.pow(player.shiftPower.value, player.shifts));
+  mult = mult.times(Decimal.pow(player.doublingPower.value, get(player.doubleBought, rank, 0)));
+  mult = mult.times(Decimal.pow(player.boostPower.value, get(player.boosts, rank, 0)));
   mult = mult.times(player.achBoost);
+  mult = mult.times(player.prodMult.value);
+  // from infinity upgrades
+  mult = mult.times(getEffect(player, 'playTimeProdBoost'));
+  mult = mult.times(getEffect(player, 'infTimeProdBoost'));
+  mult = mult.times(getEffect(player, 'resetTimeProdBoost'));
+  mult = mult.times(getEffect(player, 'infinityProdBoost'));
+  mult = mult.times(getEffect(player, 'ipProdBoost'));
+  mult = mult.times(getEffect(player, 'boughtProdBoost', rank));
   if (rank === 7) {
     if (hasAchievement(player, 'Where\'s eight?')) {
       mult = mult.times(7 / 6);
@@ -256,9 +302,20 @@ let getMultiplier = function (rank) {
     if (hasAchievement(player, 'What\'s the point of doing that?')) {
       mult = mult.times(Decimal.pow(2401 / 2400, getBought(1)));
     }
+    if (hasAchievement(player, 'We ain\'t ever getting over')) {
+      mult = mult.times(2);
+    }
+  }
+  if (rank !== 7) {
+    if (hasAchievement(player, 'One\'s even enough')) {
+      mult = mult.times(7 / 6);
+    }
   }
   if (hasAchievement(player, 'Halfway there')) {
     mult = mult.times(2);
+  }
+  if (hasAchievement(player, 'Anti-invasion from the eighth dimension!')) {
+    mult = mult.times(rank);
   }
   return mult;
 }
@@ -277,6 +334,28 @@ let canGiveNerf = function () {
   }
   for (let i = 2; i <= 7; i++) {
     if (getAmount(i).gt(0)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+let canGiveNerfII = function () {
+  if (!canGiveNerf()) {
+    return false;
+  }
+  if (totalBoosts() > 0) {
+    return false;
+  }
+  if (player.shifts > 0) {
+    return false;
+  }
+  return true;
+}
+
+let canGiveAntiInvasion = function () {
+  for (let i = 2; i <= 7; i++) {
+    if (getMultiplier(i).lte(getMultiplier(i - 1))) {
       return false;
     }
   }
@@ -313,6 +392,18 @@ let updateAmountAch = function () {
   if (getAmount(7).gte(274 - .001)) {
     giveAchievement(player, '2747');
   }
+  if (getProdPerSecondOf(0).gt(1e6) && canGiveNerfII()) {
+    giveAchievement(player, 'Some one needs to nerf that II');
+  }
+  if (canGiveAntiInvasion()) {
+    giveAchievement(player, 'Anti-invasion from the eighth dimension!');
+  }
+  // Give an initial grace second.
+  if (getZeros(player).gt(getProdPerSecondOf(0)) &&
+  (Date.now() - player.times.resetStart) > 1000) {
+    // The player got over.
+    player.gettingOver = true;
+  }
 }
 
 let tick = function () {
@@ -328,7 +419,7 @@ let tick = function () {
 }
 
 let getInfinityPoints = function () {
-  return new Decimal(1);
+  return player.ipMult.value;
 }
 
 let doInfinityStuff = function () {
@@ -371,6 +462,7 @@ let getClickPower = function () {
   if (hasAchievement(player, 'That\'s a lot of clicks')) {
     res = res.times(2);
   }
+  res = res.times(player.clickMult.value);
   return res;
 }
 
@@ -526,7 +618,7 @@ let updateNumbersRow = function (i) {
   e10.innerHTML = title(TIERS[i]) + ' boosts done: ' +
   get(player.boosts, i, 0);
   let e11 = document.getElementById('doBoost' + i);
-  let c3 = player.neededPerBoost * (1 + get(player.boosts, i, 0));
+  let c3 = player.boostEasier.value * (1 + get(player.boosts, i, 0));
   e11.innerHTML = 'Do a boost (requires ' + processPhrase(c3, 0, i) +
   ' bought)';
   if (canBoost(i)) {
@@ -661,7 +753,7 @@ let resetKeys = [
   'amounts', 'bought', 'prices', 'priceMults', 'doubleBought', 'doublePrices'];
 
 let canBoost = function (i) {
-  return player.neededPerBoost * (1 + get(player.boosts, i, 0)) <=
+  return player.boostEasier.value * (1 + get(player.boosts, i, 0)) <=
     getBought(i);
 }
 
@@ -697,6 +789,9 @@ let boost = function (i) {
     return false;
   }
   giveAchievement(player, 'You need a boost');
+  if (i === 7) {
+    giveAchievement(player, 'Why were boosts afraid of seven?');
+  }
   player.boosts[i] = get(player.boosts, i, 0) + 1;
   resetMinor([]);
   return true;
@@ -718,12 +813,38 @@ let goInfinite = function () {
     notify('Cannot go infinite!', 'red', 2);
     return false;
   }
+  let now = Date.now();
+  let newIp = getInfinityPoints();
   giveAchievement(player, 'Not quite eight');
-  player.times.infStart = Date.now();
+  if (now - player.times.infStart < 1800 * 1000) {
+    giveAchievement(player, 'That\'s fast!');
+  }
+  if (now - player.times.infStart < 60 * 1000) {
+    giveAchievement(player, 'That\'s faster!');
+  }
+  if (getAmount(7).eq(1)) {
+    giveAchievement(player, 'One\'s even enough');
+  }
+  if (player.shifts <= 5 && totalBoosts() === 0) {
+    giveAchievement(player, 'How did you do that?');
+  }
+  if (!player.gettingOver) {
+    giveAchievement(player, 'We ain\'t ever getting over');
+  }
+  player.last10Inf.pop();
+  player.last10Inf.unshift({
+    'time': now - player.times.infStart, 'ip': newIp,
+    'ipPerMinute': newIp.div(now - player.times.infStart).times(60 * 1000)
+  });
+  player.times.infStart = now;
   player.infinities++;
-  player.infinityPoints = get(player, 'infinityPoints', new Decimal(0)).plus(
-    getInfinityPoints());
-  resetMinor(['boosts', 'shifts']);
+  player.gettingOver = false;
+  if (player.infinities >= 10) {
+    giveAchievement(player, 'That\'s a lot of infinities')
+  }
+  addIP(newIp);
+  resetMinor(['boosts']);
+  player.shifts = player.shiftEasier.value;
   return true;
 }
 
@@ -755,6 +876,22 @@ let setOtherOnclick = function () {
   document.getElementById('goinfinite').onclick = goInfinite;
 }
 
+let addIP = function (x) {
+  player.infinityPoints = player.infinityPoints.plus(x);
+}
+
+let getBestLast10IP = function () {
+  return player.last10Inf.map(function (x) {
+    return x.ipPerMinute;
+  }).reduce(function (a, b) {
+    return a.max(b);
+  });
+}
+
+let giveIP = function () {
+  addIP(getBestLast10IP().times(player.ipEasier.value));
+}
+
 let setup = function () {
   load(localStorage.getItem('save'), false);
   let tabbtns = document.getElementsByClassName('tabbtn');
@@ -764,6 +901,8 @@ let setup = function () {
       showTab(name);
     }
   }
+  populateAchievements(player);
+  populateShop(player, infinityShop);
   setOptionsOnclick();
   setupNumbersSection();
   updateNumbersSection();
@@ -771,7 +910,7 @@ let setup = function () {
   setOtherOnclick();
   setInterval(tick, 100);
   setInterval(save, 10000);
-  populateAchievements(player);
+  setInterval(giveIP, 60 * 1000);
 }
 
 let player = initPlayer();

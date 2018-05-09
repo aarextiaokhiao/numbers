@@ -103,6 +103,9 @@ the top 3 rows of infinity upgrades, and not the bottom 2, apply in challenges
 
 break infinity upgrades:
 
+star autobuyer: 10^4
+can boost multiple numbers at once: 10^4
+can boost one numbers multiple times at once: 10^4
 multiplier to ip based on ip:
 na -> max(1, log 343 ip) -> max(1, log 49 ip) -> max(1, log 7 ip)
 costs: 10^4, 10^5, 10^6
@@ -202,7 +205,7 @@ Fourth row:
 
 Daredevil: Complete a challenge.
 
-That's fast: Go infinite in 1 hour. Reward: Start with 7^3 zeros.
+That's fast: Go infinite in 30 minutes. Reward: Start with 7^3 zeros.
 
 One's even enough: Go infinite with only one seven.
 [Note: this only considers what you have when you reach infinity.]

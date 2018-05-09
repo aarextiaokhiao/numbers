@@ -1,6 +1,8 @@
+import {Decimal} from './big_number.js';
+
 let notifyPriority = 0;
 
-let times = [['second', 60], ['minute', 60], ['hour', 24], ['day', 30], ['month', 12], ['year', 1000]];
+let times = [['second', 60], ['minute', 60], ['hour', 24], ['day', 30], ['month', 12], ['year', 10000]];
 
 let processPhrase = function (num, places, what, plural) {
   let m = (typeof num === 'number') ? 'toFixed' : 'toStr';
@@ -16,13 +18,26 @@ let formatTime = function (x) {
     x /= num;
     r.push([v, 3, i]);
   }
+  while (r.length > 1 && r[r.length - 1][0] === 0) {
+    r.pop();
+  }
   let s = [processPhrase(...r[0]), ', and '];
   for (let i of r.slice(1)) {
     s.push(processPhrase(...i));
     s.push(', ');
   }
   s.pop();
+  if (s.length === 3) {
+    s[1] = ' and ';
+  }
   return s.reverse().join('');
+}
+
+let at = function (x, y) {
+  for (let i in y) {
+    x = x[i];
+  }
+  return x;
 }
 
 let get = function (d, k, def) {
@@ -48,4 +63,13 @@ let title = function (x) {
   return x[0].toUpperCase() + x.slice(1).toLowerCase();
 }
 
-export {title, get, processPhrase, formatTime, notify};
+let utilGetBought = function (player, i) {
+  return get(player.bought, i, 0)
+}
+
+let utilGetAmount = function (player, i) {
+  return get(player.amounts, i, new Decimal(0))
+}
+
+export {at, title, get, processPhrase, formatTime, notify,
+  utilGetAmount, utilGetBought};
