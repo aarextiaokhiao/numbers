@@ -160,13 +160,13 @@ let infinityShop = {
           return Decimal.pow(5, bought + 1);
         },
         getValue: function (bought) {
-          return bought / 4;
+          return bought / 8;
         },
         displayValue: function (value) {
           if (value === 0) {
             return '1x';
           } else {
-            return 'bought^' + value.toFixed(2) + 'x';
+            return 'bought^' + value.toFixed(3) + 'x';
           }
         },
         getEffect: function (player, value, rank) {

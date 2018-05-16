@@ -20,7 +20,7 @@ let achievements = [
   ], [
     {'name': 'All at once', 'desc': 'Buy at least 343 ones at once.'},
     {'name': "That's a lot of boosts", 'desc': 'Boost 10 times.'},
-    {'name': "What's the point of doing that?", 'desc': "Buy a single one when you've bought at least 2401. Reward: each one bought gives a 2401/2400 boost to one production."},
+    {'name': "What's the point of doing that?", 'desc': "Buy a single one when you've bought at least 2401. Reward: each one bought gives a 2401/2400x boost to one production."},
     {'name': 'Halfway there', 'desc': 'Get over 1.34e154 zeros. Reward: All production is doubled.'},
     {'name': 'Some one needs to nerf that', 'desc': 'Produce 1e6 zeros per second with a single one and nothing else.'},
     {'name': '2747', 'desc': 'Get 274 sevens. Reward: each seven bought gives a 343/342 boost to seven production.'},
@@ -31,7 +31,7 @@ let achievements = [
     {'name': "One's even enough", 'desc': 'Go infinite with only one seven. Reward: All numbers but sevens are 7/6x stronger.'},
     {'name': 'Why were boosts afraid of seven?', 'desc': 'Boost sevens.'},
     {'name': 'Some one needs to nerf that II', 'desc': 'Produce 1e6 zeros per second with a single one and nothing else without any shifts or boosts.'},
-    {'name': 'Anti-invasion from the eighth dimension!', 'desc': 'Get the production multipliers in reversed order (that is, get one production multiplier to be less than two production multiplier, two production multiplier to be less than three production multiplier, etc.). Reward: number n gets nx production multiplier (that is, ones get 1x, twos get 2x, etc.).'},
+    {'name': 'Anti-invasion from the eighth dimension!', 'desc': 'Get the production multipliers in reversed order (that is, get one production multiplier to be less than two production multiplier, two production multiplier to be less than three production multiplier, etc.).'},
     {'name': "That's a lot of infinities", 'desc': 'Go infinite 10 times.'}
   ], [
     {'name': 'Anti-challenged', 'desc': 'Complete all the challenges.'},

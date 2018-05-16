@@ -1,9 +1,10 @@
 import {Decimal} from './big_number.js';
-import {achievements, populateAchievements, giveAchievement, hasAchievement}
+import {achievements, populateAchievements,
+  giveAchievement, hasAchievement}
 from './achievements.js';
 import {getEffect, infinityShop, populateShop} from './shops.js';
 import {title, get, processPhrase, formatTime, notify,
-utilGetAmount, utilGetBought} from './utils.js';
+  utilGetAmount, utilGetBought, setPlayer} from './utils.js';
 
 let TIERS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven'];
 
@@ -56,6 +57,10 @@ let initialLast10Inf = function () {
   });
 }
 
+let getInitialOptions = function () {
+  return {};
+}
+
 let initPlayer = function () {
   return {
     'totalZeros': new Decimal(0),
@@ -81,6 +86,7 @@ let initPlayer = function () {
     },
     'lastTick': Date.now(),
     'last10Inf': initialLast10Inf(),
+    'options': getInitialOptions(),
     'version': [1, 0, 0, 0]
   };
 }
@@ -163,11 +169,14 @@ let updatePlayer = function () {
   })) {
     player.last10Inf = initialLast10Inf();
   }
+  if (!('options' in player)) {
+    player.options = getInitialOptions();
+  }
 }
 
 let load = function (x, playerCaused) {
   try {
-    player = getLoad(JSON.parse(atob(x)));
+    setPlayer(player, getLoad(JSON.parse(atob(x))));
     updatePlayer();
   } catch (e) {
     if (playerCaused) {
@@ -313,9 +322,6 @@ let getMultiplier = function (rank) {
   }
   if (hasAchievement(player, 'Halfway there')) {
     mult = mult.times(2);
-  }
-  if (hasAchievement(player, 'Anti-invasion from the eighth dimension!')) {
-    mult = mult.times(rank);
   }
   return mult;
 }
@@ -495,7 +501,7 @@ let setOptionsOnclick = function () {
     if (confirm('Are you sure? Hard resetting will completely reset your game ' +
     'and not unlock anything new. You will not be able to reverse this action. ' +
     'You might want to copy your save first.')) {
-      player = initPlayer();
+      setPlayer(player, initPlayer());
       save();
     }
   }
@@ -766,10 +772,10 @@ let giveStartAchBonuses = function () {
   if (hasAchievement(player, 'Not quite eight')) {
     player.amounts[0] = getZeros().max(new Decimal(7));
   }
-  if (hasAchievement(player, 'That\'s fast')) {
+  if (hasAchievement(player, 'That\'s fast!')) {
     player.amounts[0] = getZeros().max(new Decimal(7).pow(3));
   }
-  if (hasAchievement(player, 'That\'s faster')) {
+  if (hasAchievement(player, 'That\'s faster!')) {
     player.amounts[0] = getZeros().max(new Decimal(7).pow(9));
   }
 }

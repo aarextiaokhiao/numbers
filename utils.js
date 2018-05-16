@@ -71,5 +71,11 @@ let utilGetAmount = function (player, i) {
   return get(player.amounts, i, new Decimal(0))
 }
 
+let setPlayer = function (player, newPlayer) {
+  for (let i in newPlayer) {
+    player[i] = newPlayer[i];
+  }
+}
+
 export {at, title, get, processPhrase, formatTime, notify,
-  utilGetAmount, utilGetBought};
+  utilGetAmount, utilGetBought, setPlayer};
