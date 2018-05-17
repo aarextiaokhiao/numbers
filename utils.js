@@ -2,7 +2,7 @@ import {Decimal} from './big_number.js';
 
 let notifyPriority = 0;
 
-let times = [['second', 60], ['minute', 60], ['hour', 24], ['day', 30], ['month', 12], ['year', 10000]];
+let times = [['second', 60], ['minute', 60], ['hour', 24], ['day', 30], ['month', 12], ['year', 1e6]];
 
 let processPhrase = function (num, places, what, plural) {
   let m = (typeof num === 'number') ? 'toFixed' : 'toStr';
@@ -34,7 +34,7 @@ let formatTime = function (x) {
 }
 
 let at = function (x, y) {
-  for (let i in y) {
+  for (let i of y) {
     x = x[i];
   }
   return x;
@@ -77,5 +77,24 @@ let setPlayer = function (player, newPlayer) {
   }
 }
 
+let doInterval = function (obj, f) {
+  let now = Date.now();
+  if (obj.last + obj.interval <= now) {
+    obj.last = now;
+    f();
+  }
+}
+
+let getOrCreateElement = function (id, parent) {
+  let el = document.getElementById(id);
+  if (!el) {
+    el = document.createElement('div');
+    el.id = id;
+    parent.appendChild(el);
+  }
+  return el;
+}
+
 export {at, title, get, processPhrase, formatTime, notify,
-  utilGetAmount, utilGetBought, setPlayer};
+  utilGetAmount, utilGetBought, setPlayer, doInterval,
+  getOrCreateElement};

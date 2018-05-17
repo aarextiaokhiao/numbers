@@ -3,8 +3,11 @@ import {achievements, populateAchievements,
   giveAchievement, hasAchievement}
 from './achievements.js';
 import {getEffect, infinityShop, populateShop} from './shops.js';
+import {challengeList, getTotalChallengeTime,
+  getChallName} from './challenges.js';
 import {title, get, processPhrase, formatTime, notify,
-  utilGetAmount, utilGetBought, setPlayer} from './utils.js';
+  utilGetAmount, utilGetBought, setPlayer, doInterval,
+  getOrCreateElement} from './utils.js';
 
 let TIERS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven'];
 
@@ -52,13 +55,29 @@ let initNeededPerShift = function () {
 
 let initialLast10Inf = function () {
   return [...Array(10)].map(function (x) {
-    return {'time': 1000 * 30 * 12 * 24 * 60 * 60 * 1000,
+    return {'time': millisecondsPerMillennium,
     'ip': new Decimal(0), 'ipPerMinute': new Decimal(0)};
   });
 }
 
 let getInitialOptions = function () {
   return {};
+}
+
+let millisecondsPerMillennium = 1000 * 360 * 24 * 3600 * 1000;
+
+let getInitialChallengeData = function () {
+  let bestTimes = {};
+  for (let i of challengeList) {
+    bestTimes[i] = millisecondsPerMillennium;
+  }
+  return {
+    'intervals': {
+      '4': {'last': Date.now(), 'interval': 4000},
+      '5': {'last': Date.now(), 'interval': 5000}
+    },
+    'bestTimes': bestTimes
+  }
 }
 
 let initPlayer = function () {
@@ -87,7 +106,10 @@ let initPlayer = function () {
     'lastTick': Date.now(),
     'last10Inf': initialLast10Inf(),
     'options': getInitialOptions(),
-    'version': [1, 0, 0, 0]
+    'version': [1, 0, 0, 0],
+    'challengeData': getInitialChallengeData(),
+    'bestInfTime': millisecondsPerMillennium,
+    'currentChallenge': ''
   };
 }
 
@@ -172,6 +194,20 @@ let updatePlayer = function () {
   if (!('options' in player)) {
     player.options = getInitialOptions();
   }
+  if (!('bestInfTime' in player)) {
+    player.bestInfTime = millisecondsPerMillennium;
+  }
+  if (!('challengeData' in player)) {
+    player.challengeData = getInitialChallengeData();
+  }
+  for (let i of challengeList) {
+    if (!(i in player.challengeData.bestTimes)) {
+      player.challengeData.bestTimes[i] = millisecondsPerMillennium;
+    }
+  }
+  if (!('currentChallenge' in player)) {
+    player.currentChallenge = '';
+  }
 }
 
 let load = function (x, playerCaused) {
@@ -222,15 +258,19 @@ let updateStats = function () {
   } else {
     document.getElementById('statInfinitied').style.display = 'none';
   }
+  // best inf time
   if (player.infinities > 0) {
-    document.getElementById('last10Inf').style.display = '';
+    document.getElementById('bestInfTime').style.display = '';
+    document.getElementById('bestInfTime').innerHTML =
+    'Your best infinity time is ' + formatTime(player.bestInfTime) + '.';
+  } else {
+    document.getElementById('bestInfTime').style.display = 'none';
+  }
+  if (player.infinities > 0) {
+    let p = document.getElementById('last10Inf');
+    p.style.display = '';
     for (let i = 0; i < 10; i++) {
-      let el = document.getElementById('last10Inf' + i);
-      if (!el) {
-        el = document.createElement('div');
-        el.id = 'last10Inf' + i;
-        document.getElementById('last10Inf').appendChild(el);
-      }
+      let el = getOrCreateElement('last10Inf' + i, p);
       el.innerHTML = 'The infinity ' + (i + 1) + ' infinities ago took ' +
       formatTime(player.last10Inf[i].time) + ' and gave ' +
       player.last10Inf[i].ip.toStr(2) + ' infinity points. ' +
@@ -238,6 +278,20 @@ let updateStats = function () {
     }
   } else {
     document.getElementById('last10Inf').style.display = 'none';
+  }
+  if (player.infinities > 0) {
+    let p = document.getElementById('challengeTimes');
+    p.style.display = '';
+    for (let i of challengeList) {
+      let el = getOrCreateElement(i + 'ChallengeTime', p);
+      el.innerHTML = 'Best ' + getChallName(i) + ' time: ' +
+      formatTime(player.challengeData.bestTimes[i]);
+    }
+    let el = getOrCreateElement('totalChallengeTime', p);
+    el.innerHTML = 'Sum of challenge times: ' +
+    formatTime(getTotalChallengeTime(player));
+  } else {
+    document.getElementById('challengeTimes').style.display = 'none';
   }
 }
 
@@ -395,7 +449,7 @@ let updateAmountAch = function () {
     giveAchievement(player, 'Some one needs to nerf that');
   }
   // imprecision
-  if (getAmount(7).gte(274 - .001)) {
+  if (getAmount(7).gte(274 - 1e-6)) {
     giveAchievement(player, '2747');
   }
   if (getProdPerSecondOf(0).gt(1e6) && canGiveNerfII()) {
@@ -421,11 +475,40 @@ let tick = function () {
   updateStats();
   updateNumbersSection();
   doProduction(diff);
+  giveIP(diff);
   doInfinityStuff();
+  doChallengeIntervalStuff();
+}
+
+let inChallenge = function (x) {
+  return player.currentChallenge === x;
+}
+
+let removeAllButHighest = function (x) {
+  let seenHad = false;
+  for (let i = 7; i >= 0; i--) {
+    if (seenHad) {
+      player.amounts[i] = new Decimal(0);
+    }
+    seenHad = seenHad || player.amounts[i].gt(0);
+  }
+}
+
+let doChallengeIntervalStuff = function () {
+  if (inChallenge('4')) {
+    doInterval(player.challengeData.intervals['4'], removeAllButHighest);
+  }
+  if (inChallenge('5')) {
+    doInterval(player.challengeData.intervals['5'], maxall);
+  }
 }
 
 let getInfinityPoints = function () {
-  return player.ipMult.value;
+  if (player.currentChallenge === '') {
+    return player.ipMult.value;
+  } else {
+    return new Decimal(1);
+  }
 }
 
 let doInfinityStuff = function () {
@@ -442,8 +525,12 @@ let doInfinityStuff = function () {
   }
   if (player.infinities > 0) {
     document.getElementById('inftabbtn').style.display = '';
+    document.getElementById('challtabbtn').style.display = '';
+    document.getElementById('autotabbtn').style.display = '';
   } else {
     document.getElementById('inftabbtn').style.display = 'none';
+    document.getElementById('challtabbtn').style.display = 'none';
+    document.getElementById('autotabbtn').style.display = 'none';
   }
   updateInfinityTab();
 }
@@ -468,7 +555,9 @@ let getClickPower = function () {
   if (hasAchievement(player, 'That\'s a lot of clicks')) {
     res = res.times(2);
   }
-  res = res.times(player.clickMult.value);
+  if (player.currentChallenge === '') {
+    res = res.times(player.clickMult.value);
+  }
   return res;
 }
 
@@ -597,7 +686,7 @@ let updateNumbersRow = function (i) {
   processPhrase(c1, 2, TIERS[i - 1], PLURAL_TIERS[i - 1]) + ')';
   let e6 = document.getElementById('buyMax' + i);
   e6.innerHTML = 'Buy max ' + PLURAL_TIERS[i];
-  if (c1.lte(getAmount(i - 1).plus(.001))) {
+  if (c1.lte(getAmount(i - 1).plus(1e-6))) {
     e5.className = 'availablebtn';
     e6.className = 'availablebtn';
   } else {
@@ -624,7 +713,7 @@ let updateNumbersRow = function (i) {
   e10.innerHTML = title(TIERS[i]) + ' boosts done: ' +
   get(player.boosts, i, 0);
   let e11 = document.getElementById('doBoost' + i);
-  let c3 = player.boostEasier.value * (1 + get(player.boosts, i, 0));
+  let c3 = getNeededPerBoost() * (1 + get(player.boosts, i, 0));
   e11.innerHTML = 'Do a boost (requires ' + processPhrase(c3, 0, i) +
   ' bought)';
   if (canBoost(i)) {
@@ -686,7 +775,7 @@ let baseBuyOne = function (i) {
   if (i > player.shifts + 1) {
     return false;
   }
-  if (player.prices[i].gt(getAmount(i - 1).plus(.001))) {
+  if (player.prices[i].gt(getAmount(i - 1).plus(1e-6))) {
     return false;
   }
   player.amounts[i] = getAmount(i).plus(1);
@@ -758,8 +847,16 @@ let buyMaxDoubling = function (i) {
 let resetKeys = [
   'amounts', 'bought', 'prices', 'priceMults', 'doubleBought', 'doublePrices'];
 
+let getNeededPerBoost = function () {
+  if (player.currentChallenge === '') {
+    return player.boostEasier.value;
+  } else {
+    return 343;
+  }
+}
+
 let canBoost = function (i) {
-  return player.boostEasier.value * (1 + get(player.boosts, i, 0)) <=
+  return getNeededPerBoost() * (1 + get(player.boosts, i, 0)) <=
     getBought(i);
 }
 
@@ -822,10 +919,12 @@ let goInfinite = function () {
   let now = Date.now();
   let newIp = getInfinityPoints();
   giveAchievement(player, 'Not quite eight');
-  if (now - player.times.infStart < 1800 * 1000) {
+  let infTime = now - player.times.infStart;
+  player.bestInfTime = Math.min(infTime, player.bestInfTime);
+  if (infTime < 1800 * 1000) {
     giveAchievement(player, 'That\'s fast!');
   }
-  if (now - player.times.infStart < 60 * 1000) {
+  if (infTime < 60 * 1000) {
     giveAchievement(player, 'That\'s faster!');
   }
   if (getAmount(7).eq(1)) {
@@ -850,7 +949,43 @@ let goInfinite = function () {
   }
   addIP(newIp);
   resetMinor(['boosts']);
-  player.shifts = player.shiftEasier.value;
+  player.currentChallenge = '';
+  player.shifts = getStartingShifts();
+  return true;
+}
+
+let getStartingShifts = function () {
+  if (player.currentChallenge === '') {
+    return player.shiftEasier.value;
+  } else {
+    return 0;
+  }
+}
+
+let getConfirmation = function (chall) {
+  if (chall === '') {
+    return confirm(
+      'You will lose all your progress in this challenge. ' +
+      'Are you sure you want to exit it?');
+  } else {
+    return confirm(
+      'You will lose all your progress in your current infinity. ' +
+      'You will start a new infinity with special conditions ' +
+      'that generally will make the game harder. ' +
+      'The bottom two rows of infinity upgrades will not apply. ' +
+      'Are you sure you want to start this challenge?');
+  }
+}
+
+let enterChallenge = function (chall) {
+  if (!getConfirmation(chall)) {
+    return false;
+  }
+  player.currentChallenge = chall;
+  player.times.infStart = Date.now();
+  player.gettingOver = false;
+  resetMinor(['boosts']);
+  player.shifts = getStartingShifts();
   return true;
 }
 
@@ -894,8 +1029,11 @@ let getBestLast10IP = function () {
   });
 }
 
-let giveIP = function () {
-  addIP(getBestLast10IP().times(player.ipEasier.value));
+let giveIP = function (diff) {
+  if (player.currentChallenge === '') {
+    addIP(getBestLast10IP().times(player.ipEasier.value).times(
+      diff).div(60 * 1000));
+  }
 }
 
 let setup = function () {
@@ -916,7 +1054,6 @@ let setup = function () {
   setOtherOnclick();
   setInterval(tick, 100);
   setInterval(save, 10000);
-  setInterval(giveIP, 60 * 1000);
 }
 
 let player = initPlayer();
@@ -925,7 +1062,7 @@ window.addEventListener('keydown', function(event) {
   if (document.activeElement.type === "text") {
     return false;
   }
-  const tmp = event.keyCode;
+  let tmp = event.keyCode;
   if (tmp >= 49 && tmp <= 55) {
       buyMax(tmp - 48);
       return false;

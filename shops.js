@@ -400,6 +400,9 @@ let getEffect = function (player, name, info) {
     return 1;
   }
   let item = at(shops[player[name].shopName].items, player[name].coords);
+  if (item.name !== name) {
+    throw new Error('Incorrectly named item!');
+  }
   return item.getEffect(player, player[name].value, info);
 }
 
@@ -414,11 +417,12 @@ let displayEffect = function (effect) {
 let tryToBuy = function (player, shop, i, j) {
   let item = shop.items[i][j];
   let itemEl = document.getElementById(item.name);
-  let canBuy = player[shop.stat].gte(item.getCost(player[item.name].bought));
+  let canBuy = player[shop.stat].gte(
+    item.getCost(player[item.name].bought).minus(1e-6));
   let maxedOut = item.maxBuyable <= player[item.name].bought;
   if (canBuy && !maxedOut) {
     player[shop.stat] = player[shop.stat].minus(
-      item.getCost(player[item.name].bought));
+      item.getCost(player[item.name].bought)).max(0);
     player[item.name].bought++;
     player[item.name].value = item.getValue(player[item.name].bought);
   }
@@ -436,7 +440,8 @@ let checkPurchaseAll = function (player, shop) {
 let checkPurchase = function (player, shop, i, j) {
   let item = shop.items[i][j];
   let itemEl = document.getElementById(item.name);
-  let canBuy = player[shop.stat].gte(item.getCost(player[item.name].bought));
+  let canBuy = player[shop.stat].gte(
+    item.getCost(player[item.name].bought).minus(1e-6));
   let maxedOut = item.maxBuyable <= player[item.name].bought;
   if (maxedOut) {
     itemEl.className = 'completedbtn';
